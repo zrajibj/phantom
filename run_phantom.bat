@@ -42,11 +42,11 @@ rem Restore only that tracked output if it was left modified by a failed run.
 git diff --quiet -- "public_reports/latest.md"
 if errorlevel 1 (
     echo Cleaning up the previous generated summary so Git can update safely...
-    git restore -- "public_reports/latest.md"
-    if errorlevel 1 (
-        echo ERROR: Could not restore the generated summary file.
-        goto finish_error
-    )
+)
+git restore --source=HEAD --staged --worktree -- "public_reports/latest.md"
+if errorlevel 1 (
+    echo ERROR: Could not restore the generated summary file.
+    goto finish_error
 )
 
 set "STATUS_FILE=%TEMP%\phantom-status-%RANDOM%.txt"
