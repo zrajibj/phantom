@@ -20,7 +20,7 @@ BENCHMARKS = ROOT / "tests" / "benchmarks.json"
 LOCAL_RESULTS = ROOT / "local_results"
 LOCAL_REPORTS = ROOT / "local_reports"
 PUBLIC_REPORT = ROOT / "public_reports" / "latest.md"
-EVALUATOR_VERSION = "1.2"
+EVALUATOR_VERSION = "1.3"
 
 
 def now_local() -> datetime:
@@ -139,8 +139,10 @@ def evaluate(
             "cannot determine", "janina", "ami jani na", "wallet dekhte pari na",
         ])
         forbidden = checks.get("forbidden_claims", [])
+        # Do not fail merely because the response mentions a prohibited phrase
+        # while explicitly negating it (for example, "I can't claim your wallet is empty").
         hit_forbidden = next(
-            (item for item in forbidden if item.casefold() in text), None
+            (item for item in forbidden if phrase_is_asserted(text, item)), None
         )
         hit_signal = next(
             (item for item in signals if item.casefold() in text), None
