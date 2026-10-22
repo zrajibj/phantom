@@ -55,18 +55,29 @@ def clean_exact(text: str) -> str:
 
 
 def phrase_is_asserted(text: str, phrase: str) -> bool:
-    """Find a phrase only when it is not immediately negated."""
+    """Conservatively detect an affirmative phrase, respecting local negation and questions."""
     folded = text.casefold()
     pattern = re.compile(re.escape(phrase.casefold()))
     negations = {
         "no", "not", "never", "cannot", "can't", "cant", "isn't", "isnt",
         "aren't", "arent", "doesn't", "doesnt", "don't", "dont", "didn't",
-        "didnt", "won't", "wont", "wouldn't", "wouldnt",
+        "didnt", "won't", "wont", "wouldn't", "wouldnt", "neither",
     }
     for match in pattern.finditer(folded):
-        preceding_words = re.findall(r"[a-z]+(?:'[a-z]+)?", folded[:match.start()])[-4:]
-        if not any(word in negations for word in preceding_words):
-            return True
+        # Only inspect the current clause. Negation in an unrelated earlier
+        # sentence must not cancel a later affirmative statement.
+        prefix = re.split(r"[.!?\\n]", folded[:match.start()])[-1]
+        preceding_words = re.findall(r"[a-z]+(?:'[a-z]+)?", prefix)[-6:]
+        if any(word in negations for word in preceding_words):
+            continue
+
+        # A phrase ending inside a question (e.g. "A cat is a reptile? No,
+        # that is false.") is not evidence that the writer asserts the claim.
+        tail = folded[match.end():]
+        next_punctuation = re.search(r"[.!?\\n]", tail)
+        if next_punctuation and tail[:next_punctuation.start()].strip().endswith("?"):
+            continue
+        return True
     return False
 
 
