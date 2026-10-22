@@ -7,6 +7,7 @@ Automatic local-model experiments and reports for **PHANTOM**, using Qwen throug
 - Inference stays on your Windows PC via LM Studio's OpenAI-compatible local server.
 - The runner refuses non-loopback API URLs. It is intended for `http://127.0.0.1:1234/v1` only.
 - Benchmarks are versioned in `tests/benchmarks.json`.
+- Runtime behavior rules are maintained in `prompts/guardrails.md` and appended to every system prompt by the runner, including when `config.local.json` already exists.
 - Every run creates detailed Markdown and JSONL results in `local_reports/` and `local_results/`. These are git-ignored.
 - The only report designed for GitHub is `public_reports/latest.md`: timestamp, model label, predefined test IDs/categories, and status counts. It does **not** include prompts, generated answers, raw exception text, or personal chat history.
 - `run_phantom.bat` runs the suite and pushes only the safe summary when this repository is cloned with Git and push access is configured. If publishing fails, local reports remain available.
