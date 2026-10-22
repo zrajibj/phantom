@@ -19,6 +19,10 @@ class AgentToolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent.calculate("2 ** 999")
 
+    def test_hidden_thinking_is_not_shown_to_user(self):
+        self.assertEqual(agent.strip_hidden_thinking("<think>private scratch work</think>Final answer."), "Final answer.")
+        self.assertEqual(agent.strip_hidden_thinking("<think>incomplete private scratch work"), "")
+
     def test_loopback_url_guard(self):
         self.assertTrue(agent.validate_local_url("http://127.0.0.1:1234/v1").endswith("/v1"))
         with self.assertRaises(ValueError):
