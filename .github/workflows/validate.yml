@@ -21,8 +21,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile runner
-        run: python -m py_compile phantom_lab.py
+      - name: Compile runner and interactive assistant
+        run: python -m py_compile phantom_lab.py phantom_assistant.py
 
       - name: Validate JSON files
         run: |
