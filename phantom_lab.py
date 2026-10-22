@@ -66,7 +66,7 @@ def phrase_is_asserted(text: str, phrase: str) -> bool:
     for match in pattern.finditer(folded):
         # Only inspect the current clause. Negation in an unrelated earlier
         # sentence must not cancel a later affirmative statement.
-        prefix = re.split(r"[.!?\\n]", folded[:match.start()])[-1]
+        prefix = re.split(r"[.!?\n]", folded[:match.start()])[-1]
         preceding_words = re.findall(r"[a-z]+(?:'[a-z]+)?", prefix)[-6:]
         if any(word in negations for word in preceding_words):
             continue
@@ -74,7 +74,7 @@ def phrase_is_asserted(text: str, phrase: str) -> bool:
         # A phrase ending inside a question (e.g. "A cat is a reptile? No,
         # that is false.") is not evidence that the writer asserts the claim.
         tail = folded[match.end():]
-        next_punctuation = re.search(r"[.!?\\n]", tail)
+        next_punctuation = re.search(r"[.!?\n]", tail)
         if next_punctuation and tail[:next_punctuation.start()].strip().endswith("?"):
             continue
         return True
