@@ -1,0 +1,50 @@
+name: Validate PHANTOM Lab
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile runner
+        run: python -m py_compile phantom_lab.py
+
+      - name: Validate JSON files
+        run: |
+          python -m json.tool config.example.json > /dev/null
+          python -m json.tool tests/benchmarks.json > /dev/null
+
+      - name: Check benchmark schema
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("tests/benchmarks.json").read_text(encoding="utf-8"))
+          assert data.get("suite_version")
+          assert data.get("tests"), "At least one single-turn test is required"
+          assert all({"id", "category", "prompt", "checks"} <= set(t) for t in data["tests"])
+          assert all({"id", "category", "turns"} <= set(s) for s in data.get("scenarios", []))
+          assert all(
+              {"id", "user", "checks"} <= set(turn)
+              for scenario in data.get("scenarios", [])
+              for turn in scenario["turns"]
+          )
+          print(f"Validated {len(data['tests'])} single-turn tests and "
+                f"{sum(len(s['turns']) for s in data.get('scenarios', []))} scenario turns.")
+          PY
