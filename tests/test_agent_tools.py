@@ -11,6 +11,41 @@ class AgentToolTests(unittest.TestCase):
         self.assertEqual(agent.calculate("3 * 12 - 7"), "29")
         self.assertEqual(agent.calculate("2 ** 5"), "32")
 
+    def test_chat_loop_executes_registered_tool_then_uses_model_final(self):
+        original = agent.request_model
+        responses = iter([
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{
+                    "id": "call-test-1",
+                    "type": "function",
+                    "function": {"name": "calculator", "arguments": '{"expression": "3 * 12 - 7"}}
+                }]
+            },
+            {"role": "assistant", "content": "There are 29 apples remaining."},
+        ])
+        calls = []
+
+        def fake_request_model(config, messages, tools_enabled):
+            calls.append(tools_enabled)
+            return next(responses)
+
+        agent.request_model = fake_request_model
+        try:
+            history = [
+                {"role": "system", "content": "test system"},
+                {"role": "user", "content": "Calculate remaining apples."},
+            ]
+            answer = agent.chat_turn({}, history, "Calculate remaining apples.")
+            self.assertEqual(answer, "There are 29 apples remaining.")
+            self.assertEqual(calls, [True, True])
+            tool_messages = [m for m in history if m.get("role") == "tool"]
+            self.assertEqual(len(tool_messages), 1)
+            self.assertIn('"result": "29"', tool_messages[0]["content"])
+        finally:
+            agent.request_model = original
+
     def test_calculator_rejects_function_calls_and_names(self):
         with self.assertRaises(ValueError):
             agent.calculate("__import__('os').system('whoami')")
