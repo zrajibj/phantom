@@ -20,7 +20,7 @@ class AgentToolTests(unittest.TestCase):
                 "tool_calls": [{
                     "id": "call-test-1",
                     "type": "function",
-                    "function": {"name": "calculator", "arguments": '{"expression": "3 * 12 - 7"}}
+                    "function": {"name": "calculator", "arguments": "{\"expression\": \"3 * 12 - 7\"}"}
                 }]
             },
             {"role": "assistant", "content": "There are 29 apples remaining."},
