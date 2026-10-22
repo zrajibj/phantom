@@ -1,0 +1,42 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+config.local.json
+*.secret
+secrets/
+credentials/
+*.pem
+*.key
+token*
+*token*.json
+
+# Local model / runtime artifacts
+models/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Local run results can include private prompts and responses
+results/
+reports/
+artifacts/
+*.jsonl
+*.log
+*.tmp
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.envrc
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
