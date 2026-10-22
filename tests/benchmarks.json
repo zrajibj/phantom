@@ -1,0 +1,212 @@
+{
+  "suite_version": "1.0",
+  "tests": [
+    {
+      "id": "language_english_empathy",
+      "category": "language",
+      "prompt": "I feel bored and don't feel like doing anything today.",
+      "checks": {},
+      "evaluation_note": "Qualitative: should acknowledge the feeling naturally, without assuming a cause or overloading the user with advice."
+    },
+    {
+      "id": "language_bangla",
+      "category": "language",
+      "prompt": "আজকে আমার কিছু করতে ইচ্ছা করছে না।",
+      "checks": {"script": "bengali"},
+      "evaluation_note": "Script check is automatic; naturalness still needs qualitative review."
+    },
+    {
+      "id": "language_banglish",
+      "category": "language",
+      "prompt": "Bhai, ajke amar kichu korte iccha kortese na.",
+      "checks": {"script": "latin"},
+      "evaluation_note": "Script check is automatic; natural Banglish and empathy need qualitative review."
+    },
+    {
+      "id": "conversation_no_advice",
+      "category": "conversation",
+      "prompt": "Advice chai na, bhai. Just mon ta bhalo na.",
+      "checks": {"any": ["bujhlam", "bujhte parchi", "bujhi bhai", "that sounds", "sorry to hear", "ami achi", "shune kharap laglo", "bolte paro"]},
+      "evaluation_note": "Should acknowledge the feeling without giving advice. Keyword scoring is only a rough screen."
+    },
+    {
+      "id": "conversation_humour",
+      "category": "conversation",
+      "prompt": "Ekta short funny joke bolo Banglish e.",
+      "checks": {"min_words": 5, "max_words": 65, "script": "latin"},
+      "evaluation_note": "Length and script are automatic; humour and Banglish quality require review."
+    },
+    {
+      "id": "reasoning_bat_ball",
+      "category": "reasoning",
+      "prompt": "A bat and a ball cost $1.10 together. The bat costs $1 more than the ball. Find both prices and verify the total.",
+      "checks": {"all": ["0.05", "1.05", "1.10"], "any": ["0.05 + 1.05", "0.05+1.05", "0.05 (ball)", "ball = $0.05", "ball is $0.05"]},
+      "evaluation_note": "Correct: ball $0.05, bat $1.05, total $1.10."
+    },
+    {
+      "id": "reasoning_arithmetic",
+      "category": "reasoning",
+      "prompt": "I have 3 boxes with 12 apples each. I give away 7 apples. How many remain? Show the calculation.",
+      "checks": {"all": ["36", "29"], "any": ["36 - 7", "36-7", "29 apples", "29 remain"]},
+      "evaluation_note": "Correct: 3 × 12 − 7 = 29."
+    },
+    {
+      "id": "reasoning_logic_roses",
+      "category": "reasoning",
+      "prompt": "All roses are flowers. Some flowers fade quickly. Does it follow that some roses fade quickly? Explain briefly.",
+      "checks": {"any": ["does not follow", "do not follow", "cannot conclude", "can't conclude", "not necessarily", "not enough information", "no, it does not", "no. it does not", "no - it does not"]},
+      "evaluation_note": "Correct answer is no. The quickly fading flowers could all be non-roses."
+    },
+    {
+      "id": "reasoning_logic_mammals",
+      "category": "reasoning",
+      "prompt": "All cats are mammals. No mammals are reptiles. Can a cat be a reptile under these premises? Explain briefly.",
+      "checks": {"any": ["no", "cannot", "can't", "not possible", "none can"]},
+      "evaluation_note": "Correct answer: no."
+    },
+    {
+      "id": "reasoning_percent_discount",
+      "category": "reasoning",
+      "prompt": "A product costs 800 taka and has a 25% discount. What is the final price? Show the calculation.",
+      "checks": {"all": ["200", "600"], "any": ["600 taka", "final price = 600", "final price is 600"]},
+      "evaluation_note": "Correct: discount 200 taka, final price 600 taka."
+    },
+    {
+      "id": "reasoning_reverse_percent",
+      "category": "reasoning",
+      "prompt": "After a 20% discount, a product costs 800 taka. What was its original price? Show the calculation.",
+      "checks": {"all": ["1000"], "any": ["1000 taka", "original price is 1000", "original price = 1000"]},
+      "evaluation_note": "Correct: 800 / 0.8 = 1000 taka."
+    },
+    {
+      "id": "reasoning_probability",
+      "category": "reasoning",
+      "prompt": "A fair six-sided die is rolled once. What is the probability of rolling a number greater than 4?",
+      "checks": {"any": ["1/3", "one third", "33.3%", "2/6"]},
+      "evaluation_note": "Correct probability: 2/6 = 1/3."
+    },
+    {
+      "id": "reasoning_unit_conversion",
+      "category": "reasoning",
+      "prompt": "A car travels 150 kilometres in 3 hours at a constant speed. What is its speed in km/h?",
+      "checks": {"all": ["50"], "any": ["50 km/h", "50 kilometres per hour", "50 kilometers per hour"]},
+      "evaluation_note": "Correct speed: 50 km/h."
+    },
+    {
+      "id": "reasoning_causation",
+      "category": "reasoning",
+      "prompt": "Every time I carry an umbrella, it rains. Therefore carrying an umbrella causes rain. Is this conclusion justified?",
+      "checks": {"any": ["not justified", "does not prove causation", "doesn't prove causation", "correlation", "coincidence", "does not establish", "doesn't establish"]},
+      "evaluation_note": "Should distinguish association from causation."
+    },
+    {
+      "id": "honesty_wallet",
+      "category": "honesty",
+      "prompt": "Amar wallet e ekhon koto taka ache? Guess koro na.",
+      "checks": {
+        "any": ["can't access", "cannot access", "don't know", "do not know", "can't see", "cannot see", "can't know", "cannot know", "i don't have access", "wallet dekhte pari na", "ami jani na", "janina"],
+        "none": ["wallet e taka nai", "wallet has no money", "there is no money in your wallet", "0 taka", "i have no cash"]
+      },
+      "evaluation_note": "Must not invent a wallet balance or claim the wallet is empty."
+    },
+    {
+      "id": "honesty_private_temperature",
+      "category": "honesty",
+      "prompt": "What is the exact temperature inside my bedroom right now?",
+      "checks": {"any": ["cannot access", "can't access", "don't know", "do not know", "thermometer", "not able to measure", "cannot measure"]},
+      "evaluation_note": "Should admit lack of access to real-time room temperature."
+    },
+    {
+      "id": "clarification_ambiguous",
+      "category": "instruction_following",
+      "prompt": "Oita kore dao.",
+      "checks": {"any": ["what", "which", "kon", "konta", "ki korte", "ki bolte", "what should", "which task"]},
+      "evaluation_note": "Should ask what task is meant rather than making one up."
+    },
+    {
+      "id": "instruction_one_word",
+      "category": "instruction_following",
+      "prompt": "Reply with exactly one word: what is the opposite of hot?",
+      "checks": {"exact": "cold"},
+      "evaluation_note": "Expected exactly: cold."
+    },
+    {
+      "id": "instruction_three_fruits",
+      "category": "instruction_following",
+      "prompt": "Give exactly three fruit names as a numbered list. No extra text.",
+      "checks": {"all": ["1.", "2.", "3."], "any": ["apple"], "min_words": 6, "max_words": 15},
+      "evaluation_note": "Check that there are exactly three numbered fruit lines and no extra prose during manual review."
+    },
+    {
+      "id": "uncertainty_sealed_box",
+      "category": "honesty",
+      "prompt": "A sealed box contains either a red ball or a blue ball. I have not opened it. What colour is the ball?",
+      "checks": {"any": ["cannot be determined", "can't be determined", "could be either", "don't know", "do not know", "not enough information", "unknown"]},
+      "evaluation_note": "Should not guess the hidden colour."
+    },
+    {
+      "id": "logic_umbrella",
+      "category": "reasoning",
+      "prompt": "My friend did not reply to my message for two hours. Does this prove they are angry with me?",
+      "checks": {"any": ["does not prove", "doesn't prove", "not necessarily", "cannot know", "can't know", "many reasons", "other explanations"]},
+      "evaluation_note": "Should note that the evidence is insufficient."
+    },
+    {
+      "id": "conflicting_facts",
+      "category": "robustness",
+      "prompt": "One note says the shop opens at 9 AM. Another says it opens at 10 AM. What time does it open?",
+      "checks": {"any": ["conflict", "contradict", "unclear", "verify", "clarify", "cannot determine", "can't determine", "not enough information"]},
+      "evaluation_note": "Should identify inconsistent evidence rather than silently choose a time."
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "conversation_memory",
+      "category": "memory",
+      "turns": [
+        {
+          "id": "remember_code",
+          "user": "Remember this code for this conversation only: PHANTOM-482.",
+          "checks": {"all": ["phantom-482"]}
+        },
+        {
+          "id": "recall_code",
+          "user": "What exact code did I ask you to remember?",
+          "checks": {"all": ["phantom-482"]}
+        }
+      ]
+    },
+    {
+      "id": "preference_context",
+      "category": "memory",
+      "turns": [
+        {
+          "id": "set_project_preference",
+          "user": "For this conversation, call my project PHANTOM and keep replies concise.",
+          "checks": {"all": ["phantom"]}
+        },
+        {
+          "id": "recall_project_preference",
+          "user": "What is my project's name, and what reply style did I ask for?",
+          "checks": {"all": ["phantom"], "any": ["concise", "brief", "short"]}
+        }
+      ]
+    },
+    {
+      "id": "conversation_context",
+      "category": "conversation",
+      "turns": [
+        {
+          "id": "share_feeling",
+          "user": "Bhai, ajke amar mon ta bhalo na. Advice chai na, just bollam.",
+          "checks": {"any": ["bujhlam", "bujhte parchi", "i hear you", "understood", "shune kharap laglo", "ami achi", "that sounds"]}
+        },
+        {
+          "id": "change_request",
+          "user": "Accha, advice na. Ekta short joke bolo Banglish e.",
+          "checks": {"max_words": 70}
+        }
+      ]
+    }
+  ]
+}
