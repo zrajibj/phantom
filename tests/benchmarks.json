@@ -1,5 +1,5 @@
 {
-  "suite_version": "1.3",
+  "suite_version": "1.4",
   "tests": [
     {
       "id": "language_english_empathy",
@@ -496,6 +496,108 @@
         "semantic_rule": "inconsistent_facts"
       },
       "evaluation_note": "Should identify inconsistent evidence rather than silently choose a time.",
+      "evaluation_mode": "qualitative"
+    },
+    {
+      "id": "reasoning_counterexample_v2",
+      "category": "reasoning",
+      "prompt": "All buses are vehicles. Some vehicles are electric. Does this prove that some buses are electric? Give a brief counterexample or explanation.",
+      "checks": {
+        "any": [
+          "not necessarily",
+          "does not follow",
+          "cannot conclude",
+          "could all be cars",
+          "may all be cars"
+        ],
+        "semantic_rule": "non_entailment",
+        "positive_claims": [
+          "it proves some buses are electric",
+          "some buses must be electric",
+          "therefore some buses are electric"
+        ],
+        "negative_claims": [
+          "not necessarily",
+          "does not follow",
+          "cannot conclude",
+          "could all be cars",
+          "may all be cars"
+        ]
+      },
+      "evaluation_note": "Reasoning Engine v2: should recognize non-entailment and explain a counterexample. Phrase checks are only screening evidence.",
+      "evaluation_mode": "qualitative"
+    },
+    {
+      "id": "reasoning_missing_assumptions_v2",
+      "category": "reasoning",
+      "prompt": "A customer says their package has not arrived by the expected date. Does that prove the seller cheated them? Explain what else could have happened and what evidence would help.",
+      "checks": {
+        "any": [
+          "not necessarily",
+          "cannot conclude",
+          "delivery",
+          "tracking",
+          "evidence"
+        ],
+        "semantic_rule": "uncertainty",
+        "positive_claims": [
+          "the seller definitely cheated",
+          "the seller cheated them",
+          "the seller stole the money"
+        ],
+        "negative_claims": [
+          "not necessarily",
+          "cannot conclude",
+          "could be delayed",
+          "tracking information",
+          "check the courier",
+          "more information",
+          "evidence would help"
+        ]
+      },
+      "evaluation_note": "Should separate observation from accusation, offer plausible alternatives, and suggest evidence. Needs human semantic review.",
+      "evaluation_mode": "qualitative"
+    },
+    {
+      "id": "planning_dependency_order_v2",
+      "category": "planning",
+      "prompt": "I must publish a 5-slide presentation by tomorrow. Create a short ordered plan with dependencies and a final quality check. Keep the plan realistic.",
+      "checks": {},
+      "evaluation_note": "Review sequencing, dependencies, time awareness, and whether a final quality check is included.",
+      "evaluation_mode": "qualitative"
+    },
+    {
+      "id": "planning_risk_fallback_v2",
+      "category": "planning",
+      "prompt": "I need to migrate a small database tonight. Give me a safe sequence that covers a backup, validation, and rollback if the migration fails.",
+      "checks": {},
+      "evaluation_note": "Review whether a recoverable backup is made before migration, validation happens after, and rollback conditions are concrete.",
+      "evaluation_mode": "qualitative"
+    },
+    {
+      "id": "reasoning_tradeoffs_v2",
+      "category": "reasoning",
+      "prompt": "For local AI experiments, compare a cheaper computer with 8 GB RAM against a more expensive one with 16 GB RAM. Do not choose blindly; state the assumptions and trade-offs that would change the recommendation.",
+      "checks": {},
+      "evaluation_note": "Review whether the answer identifies workload assumptions, cost versus capability trade-offs, and a conditional recommendation.",
+      "evaluation_mode": "qualitative"
+    },
+    {
+      "id": "reasoning_verify_arithmetic_v2",
+      "category": "reasoning",
+      "prompt": "Calculate 19 multiplied by 37. Verify the result by splitting 37 into 30 and 7. Reply with only the final integer.",
+      "checks": {
+        "exact": "703"
+      },
+      "evaluation_note": "Exact-output deterministic regression for arithmetic plus verification.",
+      "evaluation_mode": "deterministic"
+    },
+    {
+      "id": "reasoning_conflicting_constraints_v2",
+      "category": "robustness",
+      "prompt": "Plan a launch that must finish in 2 hours, but the required tasks add up to 6 hours and none can run in parallel. Give me the plan.",
+      "checks": {},
+      "evaluation_note": "Should surface the infeasible constraints rather than inventing a schedule; propose reducing scope, extending the deadline, or changing dependencies.",
       "evaluation_mode": "qualitative"
     }
   ],
