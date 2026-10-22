@@ -20,6 +20,7 @@ BENCHMARKS = ROOT / "tests" / "benchmarks.json"
 LOCAL_RESULTS = ROOT / "local_results"
 LOCAL_REPORTS = ROOT / "local_reports"
 PUBLIC_REPORT = ROOT / "public_reports" / "latest.md"
+EVALUATOR_VERSION = "1.1"
 
 
 def now_local() -> datetime:
@@ -444,6 +445,7 @@ def run_test(
     config: dict[str, Any],
     history: list[dict[str, str]] | None = None,
     evaluation_mode: str = "screening",
+    suite_version: str = "unknown",
 ) -> dict[str, Any]:
     system_prompt = str(config.get("system_prompt", "You are PHANTOM, a careful assistant."))
     messages = history if history is not None else [{"role": "system", "content": system_prompt}]
@@ -457,6 +459,8 @@ def run_test(
         "category": category,
         "prompt": prompt,
         "evaluation_note": note,
+        "evaluator_version": EVALUATOR_VERSION,
+        "benchmark_suite_version": suite_version,
     }
     try:
         result = call_model(config, messages)
@@ -481,6 +485,28 @@ def md_escape(text: str) -> str:
     return str(text).replace("|", "\\|").replace("\r", "").replace("\n", "<br>")
 
 
+def safe_diagnostic(record: dict[str, Any]) -> str:
+    """A coarse, answer-free label safe to publish from this public repository."""
+    status = record.get("status", "ERROR")
+    category = record.get("category", "unknown")
+    test_id = record.get("test_id", "")
+    if status == "PASS":
+        if record.get("evaluation_mode") == "deterministic":
+            return "Mechanical checks passed; full semantic quality is not guaranteed."
+        return "Screen passed; interpretation requires context."
+    if status == "FAIL":
+        if category == "honesty":
+            return "Honesty/uncertainty guard failed; see private local report."
+        if category == "reasoning":
+            return "A reasoning consistency check failed; see private local report."
+        if category == "instruction_following":
+            return "A format or required-response check failed; see private local report."
+        return "A configured evaluation rule failed; see private local report."
+    if status == "ERROR":
+        return "The test could not complete; local report has technical details."
+    return "Human review required; automatic screening cannot certify quality."
+
+
 def write_reports(
     records: list[dict[str, Any]],
     config: dict[str, Any],
@@ -491,6 +517,24 @@ def write_reports(
     LOCAL_REPORTS.mkdir(parents=True, exist_ok=True)
     PUBLIC_REPORT.parent.mkdir(parents=True, exist_ok=True)
 
+    # Load the previous local run before writing the new run. Direct numeric
+    # comparisons are only allowed when evaluator and benchmark versions match.
+    previous_files = sorted(
+        LOCAL_RESULTS.glob("results-*.jsonl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    previous_records: list[dict[str, Any]] = []
+    previous_path = previous_files[0] if previous_files else None
+    if previous_path is not None:
+        try:
+            with previous_path.open("r", encoding="utf-8") as handle:
+                previous_records = [
+                    json.loads(line) for line in handle if line.strip()
+                ]
+        except (OSError, json.JSONDecodeError):
+            previous_records = []
+
     run_stamp = run_started.strftime("%Y%m%d-%H%M%S")
     result_path = LOCAL_RESULTS / f"results-{run_stamp}.jsonl"
     report_path = LOCAL_REPORTS / f"report-{run_stamp}.md"
@@ -498,6 +542,33 @@ def write_reports(
     category_counts: dict[str, Counter[str]] = defaultdict(Counter)
     for record in records:
         category_counts[record.get("category", "unknown")][record.get("status", "ERROR")] += 1
+
+    current_version_pairs = {
+        (record.get("evaluator_version", EVALUATOR_VERSION),
+         record.get("benchmark_suite_version", "unknown"))
+        for record in records
+    }
+    previous_version_pairs = {
+        (record.get("evaluator_version", "unknown"),
+         record.get("benchmark_suite_version", "unknown"))
+        for record in previous_records
+    }
+    comparable = bool(
+        previous_records
+        and len(current_version_pairs) == 1
+        and len(previous_version_pairs) == 1
+        and current_version_pairs == previous_version_pairs
+    )
+    previous_counts = Counter(record.get("status", "ERROR") for record in previous_records)
+    prev_by_id = {record.get("test_id"): record for record in previous_records}
+    current_by_id = {record.get("test_id"): record for record in records}
+    transitions: list[tuple[str, str, str]] = []
+    if comparable:
+        for test_id in sorted(set(prev_by_id) & set(current_by_id)):
+            old_status = prev_by_id[test_id].get("status", "ERROR")
+            new_status = current_by_id[test_id].get("status", "ERROR")
+            if old_status != new_status:
+                transitions.append((test_id, old_status, new_status))
 
     with result_path.open("w", encoding="utf-8") as handle:
         for record in records:
@@ -508,6 +579,8 @@ def write_reports(
         "",
         f"- Run started: {run_started.isoformat(timespec='seconds')}",
         f"- Model: {config.get('model', 'qwen/qwen3-8b')}",
+        f"- Evaluator version: {EVALUATOR_VERSION}",
+        f"- Benchmark suite version: {records[0].get('benchmark_suite_version', 'unknown') if records else 'unknown'}",
         f"- Test records: {len(records)}",
         f"- Runtime: {duration:.1f} seconds",
         f"- Pass: {counts['PASS']} | Fail: {counts['FAIL']} | Review: {counts['REVIEW']} | Error: {counts['ERROR']}",
@@ -524,6 +597,35 @@ def write_reports(
         lines.append(
             f"| {md_escape(category)} | {count['PASS']} | {count['FAIL']} | {count['REVIEW']} | {count['ERROR']} |"
         )
+
+    lines += ["", "## Previous-run comparison", ""]
+    if not previous_records:
+        lines.append("No previous local result file was found.")
+    elif not comparable:
+        lines.append(
+            "Not directly comparable: evaluator or benchmark version changed. "
+            "This run establishes the first baseline for its current version."
+        )
+        lines.append(
+            f"Previous version pair(s): {sorted(previous_version_pairs)}; "
+            f"current version pair(s): {sorted(current_version_pairs)}."
+        )
+    else:
+        lines.append(
+            f"Comparable to {previous_path.name}: "
+            f"Pass {previous_counts['PASS']} → {counts['PASS']}, "
+            f"Fail {previous_counts['FAIL']} → {counts['FAIL']}, "
+            f"Review {previous_counts['REVIEW']} → {counts['REVIEW']}, "
+            f"Error {previous_counts['ERROR']} → {counts['ERROR']}."
+        )
+        lines += ["", "| Test ID | Previous | Current |", "|---|---|---|"]
+        if transitions:
+            lines.extend(
+                f"| {md_escape(test_id)} | {old} | {new} |"
+                for test_id, old, new in transitions
+            )
+        else:
+            lines.append("| No status transitions | — | — |")
 
     lines += ["", "## Individual tests", ""]
     for record in records:
@@ -560,29 +662,60 @@ def write_reports(
     report_path.write_text(report_text, encoding="utf-8")
     (LOCAL_REPORTS / "latest.md").write_text(report_text, encoding="utf-8")
 
-    # Safe-to-publish summary: fixed benchmark IDs and aggregate statuses only.
-    # It deliberately excludes prompts, generations, personal conversation data,
-    # raw exceptions, local file paths, and request payloads.
+    # Public summary excludes prompts, completions, raw failures, personal data
+    # and local paths. Safe diagnostic phrases are selected from static templates.
     public_lines = [
         "# PHANTOM Lab — Latest Safe Benchmark Summary",
         "",
         f"- Run: {run_started.isoformat(timespec='seconds')}",
         f"- Model: {md_escape(config.get('model', 'qwen/qwen3-8b'))}",
+        f"- Evaluator version: {EVALUATOR_VERSION}",
+        f"- Benchmark suite version: {records[0].get('benchmark_suite_version', 'unknown') if records else 'unknown'}",
         f"- Tests recorded: {len(records)}",
         f"- Runtime: {duration:.1f} seconds",
         f"- **Pass:** {counts['PASS']} · **Fail:** {counts['FAIL']} · **Needs review:** {counts['REVIEW']} · **Error:** {counts['ERROR']}",
         "",
-        "This file contains only aggregate outcomes, predefined test IDs, and categories. "
-        "Prompts and model-generated answers are stored locally and are not published.",
+        "This report includes test IDs, categories, status outcomes, and static diagnostic labels only. "
+        "Prompts, generated answers, and detailed failure text remain local.",
         "",
-        "| Test ID | Category | Status |",
-        "|---|---|---|",
+    ]
+    if not previous_records:
+        public_lines.append("**Baseline:** No previous local run was found.")
+    elif not comparable:
+        public_lines.append(
+            "**Baseline:** Prior run used a different or unknown evaluator/benchmark version; "
+            "status totals are not directly comparable."
+        )
+    else:
+        public_lines.append(
+            f"**Baseline:** Same evaluator and benchmark versions. "
+            f"Pass {previous_counts['PASS']} → {counts['PASS']}; "
+            f"Fail {previous_counts['FAIL']} → {counts['FAIL']}; "
+            f"Review {previous_counts['REVIEW']} → {counts['REVIEW']}; "
+            f"Error {previous_counts['ERROR']} → {counts['ERROR']}."
+        )
+        if transitions:
+            public_lines += [
+                "",
+                "| Changed test | Previous | Current |",
+                "|---|---|---|",
+            ]
+            public_lines.extend(
+                f"| {md_escape(test_id)} | {old} | {new} |"
+                for test_id, old, new in transitions
+            )
+
+    public_lines += [
+        "",
+        "| Test ID | Category | Status | Diagnostic |",
+        "|---|---|---|---|",
     ]
     for record in records:
         public_lines.append(
             f"| {md_escape(record.get('test_id', 'unknown'))} | "
             f"{md_escape(record.get('category', 'unknown'))} | "
-            f"{md_escape(record.get('status', 'ERROR'))} |"
+            f"{md_escape(record.get('status', 'ERROR'))} | "
+            f"{md_escape(safe_diagnostic(record))} |"
         )
     PUBLIC_REPORT.write_text("\n".join(public_lines) + "\n", encoding="utf-8")
     return result_path, report_path
@@ -634,6 +767,7 @@ def main() -> int:
             note=test.get("evaluation_note", ""),
             config=config,
             evaluation_mode=test.get("evaluation_mode", "screening"),
+            suite_version=str(suite.get("suite_version", "unknown")),
         )
         records.append(record)
         print(f"Status: {record['status']} | Time: {record.get('elapsed_seconds', 'n/a')}s")
@@ -657,6 +791,7 @@ def main() -> int:
                 config=config,
                 history=history,
                 evaluation_mode=turn.get("evaluation_mode", "screening"),
+                suite_version=str(suite.get("suite_version", "unknown")),
             )
             records.append(record)
             print(f"Status: {record['status']} | Time: {record.get('elapsed_seconds', 'n/a')}s")
