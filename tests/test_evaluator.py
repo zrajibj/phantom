@@ -110,6 +110,22 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(phrase_is_asserted("It does not follow that some roses fade quickly.", "it follows that some roses"))
         self.assertTrue(phrase_is_asserted("Yes, it follows that some roses fade quickly.", "it follows that some roses"))
 
+    def test_question_or_quoted_claim_does_not_create_false_positive(self):
+        self.assertFalse(phrase_is_asserted(
+            "A cat is a reptile? No, it cannot be under these premises.",
+            "a cat is a reptile",
+        ))
+        self.assertFalse(phrase_is_asserted(
+            "The question was 'a cat is a reptile?' but the answer is no.",
+            "a cat is a reptile",
+        ))
+
+    def test_negation_is_scoped_to_current_sentence(self):
+        self.assertTrue(phrase_is_asserted(
+            "It is not true. A cat is a reptile.",
+            "a cat is a reptile",
+        ))
+
     def test_temperature_alternative_disclaimers_are_recognized(self):
         checks = {
             "unknown_claim": True,
