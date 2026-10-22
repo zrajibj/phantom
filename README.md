@@ -55,6 +55,16 @@ After the safe summary is pushed, ChatGPT can read:
 
 Ask for an analysis of the latest PHANTOM run. For detailed diagnosis, inspect or attach `local_reports/latest.md`; full responses intentionally stay on your own PC by default.
 
+## Reasoning Engine v2 benchmarks
+
+The benchmark suite now has **29 single-turn tests plus 6 multi-turn scenario turns (35 records per full run)**. New cases target counterexamples/non-entailment, separating observations from accusations, dependency-aware planning, migration backup/rollback, comparing trade-offs, arithmetic verification, and infeasible constraints. The evaluator stays conservative: subjective reasoning remains `REVIEW` instead of claiming that a keyword proves correctness.
+
+Latest run report is a snapshot of the last local run. It will not change merely because GitHub code changes. Run `run_phantom.bat` after syncing to get results for the current suite.
+
+[Reasoning Engine v2 design notes](docs/reasoning-engine-v2.md)
+
+Important distinction: GitHub Actions tests the Python runtime, evaluator and benchmark schema without calling Qwen. Only a run on your PC tests actual Qwen output through LM Studio. The interactive agent's tool-calling also depends on support in the LM Studio model/chat template.
+
 ## Evaluator confidence levels
 
 - `PASS`: only for a narrow deterministic check such as exact output, required numeric values appearing as numeric tokens, guarded unknown-fact honesty, or a valid numbered list. This still does not prove the entire explanation is correct.
