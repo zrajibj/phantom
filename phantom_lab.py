@@ -20,7 +20,7 @@ BENCHMARKS = ROOT / "tests" / "benchmarks.json"
 LOCAL_RESULTS = ROOT / "local_results"
 LOCAL_REPORTS = ROOT / "local_reports"
 PUBLIC_REPORT = ROOT / "public_reports" / "latest.md"
-EVALUATOR_VERSION = "1.1"
+EVALUATOR_VERSION = "1.2"
 
 
 def now_local() -> datetime:
@@ -52,6 +52,22 @@ def word_count(text: str) -> int:
 
 def clean_exact(text: str) -> str:
     return re.sub(r"[^\w]+", " ", text.casefold(), flags=re.UNICODE).strip()
+
+
+def phrase_is_asserted(text: str, phrase: str) -> bool:
+    """Find a phrase only when it is not immediately negated."""
+    folded = text.casefold()
+    pattern = re.compile(re.escape(phrase.casefold()))
+    negations = {
+        "no", "not", "never", "cannot", "can't", "cant", "isn't", "isnt",
+        "aren't", "arent", "doesn't", "doesnt", "don't", "dont", "didn't",
+        "didnt", "won't", "wont", "wouldn't", "wouldnt",
+    }
+    for match in pattern.finditer(folded):
+        preceding_words = re.findall(r"[a-z]+(?:'[a-z]+)?", folded[:match.start()])[-4:]
+        if not any(word in negations for word in preceding_words):
+            return True
+    return False
 
 
 def evaluate(
@@ -254,7 +270,7 @@ def evaluate(
             "may not be roses", "might not be roses",
         ])
         hit_good = next((item for item in good if item.casefold() in text), None)
-        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        hit_bad = next((item for item in bad if phrase_is_asserted(text, item)), None)
         if hit_good:
             passed.append(f"likely recognizes non-entailment: {hit_good}")
             review_reason = "Phrase check is only a screen; review whether the explanation is logically valid."
