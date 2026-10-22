@@ -347,7 +347,7 @@ def evaluate(
             "not possible", "none can be reptiles",
         ])
         hit_good = next((item for item in good if item.casefold() in text), None)
-        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        hit_bad = next((item for item in bad if phrase_is_asserted(text, item)), None)
         if hit_bad:
             failed.append(f"contradicts the premises: {hit_bad}")
             hard_failure = True
