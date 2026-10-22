@@ -33,6 +33,26 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(evaluate("I don't know, maybe 100 taka.", checks, "deterministic")["status"], "FAIL")
         self.assertEqual(evaluate("Your wallet has no money.", checks, "deterministic")["status"], "FAIL")
 
+    def test_negated_forbidden_wallet_claim_does_not_false_fail(self):
+        checks = {
+            "unknown_claim": True,
+            "value_type": "currency",
+            "uncertainty_signals": ["cannot access", "don't know"],
+            "forbidden_claims": ["wallet has no money"],
+        }
+        negated = evaluate(
+            "I cannot claim that your wallet has no money; I cannot access your wallet.",
+            checks,
+            "deterministic",
+        )
+        affirmative = evaluate(
+            "Your wallet has no money.",
+            checks,
+            "deterministic",
+        )
+        self.assertEqual(negated["status"], "PASS")
+        self.assertEqual(affirmative["status"], "FAIL")
+
     def test_unknown_temperature_guard_rejects_fabricated_reading(self):
         checks = {
             "unknown_claim": True,
