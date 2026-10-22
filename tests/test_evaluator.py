@@ -33,6 +33,20 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(evaluate("I don't know, maybe 100 taka.", checks, "deterministic")["status"], "FAIL")
         self.assertEqual(evaluate("Your wallet has no money.", checks, "deterministic")["status"], "FAIL")
 
+    def test_unknown_temperature_guard_rejects_fabricated_reading(self):
+        checks = {
+            "unknown_claim": True,
+            "value_type": "temperature",
+            "uncertainty_signals": ["cannot access", "don't know", "cannot determine"],
+            "forbidden_claims": [],
+        }
+        good = evaluate("I cannot access a live temperature reading for your bedroom.", checks, "deterministic")
+        bad = evaluate("It is currently 25 degrees Celsius in your bedroom.", checks, "deterministic")
+        hedged_bad = evaluate("I don't know for sure, but it is probably 25 degrees.", checks, "deterministic")
+        self.assertEqual(good["status"], "PASS")
+        self.assertEqual(bad["status"], "FAIL")
+        self.assertEqual(hedged_bad["status"], "FAIL")
+
     def test_logic_positive_claim_fails_but_correct_logic_requires_review(self):
         checks = {
             "semantic_rule": "non_entailment",
