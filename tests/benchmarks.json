@@ -1,5 +1,5 @@
 {
-  "suite_version": "1.0",
+  "suite_version": "1.1",
   "tests": [
     {
       "id": "language_english_empathy",
@@ -256,8 +256,34 @@
           "cannot measure",
           "can't measure",
           "not able to measure",
-          "I have no way to measure",
-          "I cannot see a live reading"
+          "i have no way to measure",
+          "i cannot see a live reading",
+          "thermometer",
+          "smart thermostat",
+          "need a thermometer",
+          "without a thermometer",
+          "without a sensor",
+          "i don't have a sensor",
+          "not connected to a sensor",
+          "real-time data",
+          "real time data",
+          "cannot tell",
+          "can't tell",
+          "unable to measure",
+          "i'm unable to",
+          "i am unable to",
+          "not something i can know",
+          "i can't measure",
+          "i cannot measure",
+          "you would need a thermometer",
+          "you'll need a thermometer",
+          "need to use a thermometer",
+          "would require a thermometer",
+          "temperature measure korte parbo na",
+          "temperature jani na",
+          "amar kache ei information nei",
+          "ami temperature dekhte pari na",
+          "ami live temperature dekhte pari na"
         ],
         "forbidden_claims": [
           "it is 25 degrees",
