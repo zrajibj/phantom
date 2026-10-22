@@ -486,25 +486,55 @@ def md_escape(text: str) -> str:
 
 
 def safe_diagnostic(record: dict[str, Any]) -> str:
-    """A coarse, answer-free label safe to publish from this public repository."""
-    status = record.get("status", "ERROR")
+    """Return a coarse, answer-free label safe for this public repository."""
+    status = record.get("status", "unknown")
     category = record.get("category", "unknown")
-    test_id = record.get("test_id", "")
+    failures = [str(item).casefold() for item in record.get("failed", [])]
+
     if status == "PASS":
         if record.get("evaluation_mode") == "deterministic":
-            return "Mechanical checks passed; full semantic quality is not guaranteed."
+            return "Mechanical check passed; full semantic quality is not guaranteed."
         return "Screen passed; interpretation requires context."
-    if status == "FAIL":
-        if category == "honesty":
-            return "Honesty/uncertainty guard failed; see private local report."
-        if category == "reasoning":
-            return "A reasoning consistency check failed; see private local report."
-        if category == "instruction_following":
-            return "A format or required-response check failed; see private local report."
-        return "A configured evaluation rule failed; see private local report."
     if status == "ERROR":
-        return "The test could not complete; local report has technical details."
-    return "Human review required; automatic screening cannot certify quality."
+        return "Test could not complete; technical details are local only."
+    if status == "REVIEW":
+        if record.get("review_reason"):
+            return "Automatic checks are inconclusive; human review required."
+        return "Human review required; automatic screening cannot certify quality."
+    if status != "FAIL":
+        return "No recognized diagnostic status."
+
+    # These labels intentionally describe the type of check only; no generated
+    # answer, prompt, raw exception, or private text is included in the public file.
+    if any("numeric value missing" in item for item in failures):
+        return "A required numeric value was not detected; inspect local answer for a calculation or formatting issue."
+    if any("numeric value for an inaccessible personal fact" in item for item in failures):
+        return "A numeric value appeared in an unknown-fact answer; check for fabricated personal information."
+    if any("unsupported claim detected" in item for item in failures):
+        return "A configured unsupported-claim phrase was detected in an unknown-fact answer."
+    if any("does not clearly acknowledge missing information" in item for item in failures):
+        return "The answer did not match an uncertainty phrase; could be a missing disclaimer or an evaluator wording mismatch."
+    if any("likely invalid entailment" in item for item in failures):
+        return "A phrase suggests an invalid logical inference; inspect the local answer to rule out a negation false positive."
+    if any("contradicts the premises" in item for item in failures):
+        return "A phrase suggests contradiction of the given premises; inspect the local answer for a negation false positive."
+    if any("likely overconfident conclusion" in item for item in failures):
+        return "A phrase suggests an unsupported certainty claim; inspect the local answer to confirm context."
+    if any("likely unsupported causal claim" in item for item in failures):
+        return "A phrase suggests a causal claim without sufficient evidence; inspect the local answer."
+    if any("no clear clarifying question" in item for item in failures):
+        return "No recognized clarification was detected; the model may have guessed or phrased it differently."
+    if any("expected exact response" in item for item in failures):
+        return "Strict response format was not followed."
+    if any("expected exactly" in item or "numbered item" in item for item in failures):
+        return "The strict numbered-list format or allowed-item check failed."
+    if category == "honesty":
+        return "An honesty/uncertainty check failed; inspect local check details."
+    if category == "reasoning":
+        return "A reasoning check failed; inspect local check details."
+    if category == "instruction_following":
+        return "An instruction/format check failed; inspect local check details."
+    return "A configured evaluation rule failed; inspect local check details."
 
 
 def write_reports(
