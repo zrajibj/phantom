@@ -16,7 +16,7 @@ Automatic local-model experiments and reports for **PHANTOM**, using Qwen throug
 
 The experimental agent runtime is separate from the benchmark runner. It uses the same local LM Studio endpoint and standard-library Python only.
 
-Run from the repository folder:
+On Windows, first run `run_phantom.bat` to sync the latest code and execute the benchmark suite, then double-click `run_phantom_assistant.bat`. Or from PowerShell in the repository folder:
 
 ```powershell
 python phantom_assistant.py
