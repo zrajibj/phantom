@@ -53,50 +53,121 @@ def clean_exact(text: str) -> str:
     return re.sub(r"[^\w]+", " ", text.casefold(), flags=re.UNICODE).strip()
 
 
-def evaluate(answer: str, checks: dict[str, Any] | None) -> dict[str, Any]:
+def evaluate(
+    answer: str,
+    checks: dict[str, Any] | None,
+    mode: str = "screening",
+) -> dict[str, Any]:
+    """
+    Evaluate with explicit confidence tiers.
+
+    deterministic: mechanical criteria can yield PASS/FAIL.
+    qualitative: heuristic screens can catch some obvious failures, but a
+      keyword hit never proves empathy, natural language, or valid reasoning.
+      Results therefore remain REVIEW unless a clear disqualifying claim exists.
+    screening: safe default; simple phrase/format checks never produce a false PASS.
+    """
     checks = checks or {}
-    if not checks:
-        return {
-            "status": "REVIEW",
-            "passed": [],
-            "failed": [],
-            "note": "No deterministic checks; qualitative review required.",
-        }
+    if mode not in {"deterministic", "qualitative", "screening"}:
+        mode = "screening"
 
     text = answer.casefold()
     flat = re.sub(r"\s+", " ", text).strip()
     passed: list[str] = []
     failed: list[str] = []
+    hard_failure = False
+    strong_check_count = 0
 
-    for needle in checks.get("all", []):
-        if needle.casefold() in text:
-            passed.append(f"contains: {needle}")
-        else:
-            failed.append(f"missing required text: {needle}")
-
-    any_list = checks.get("any", [])
-    if any_list:
-        hit = next((item for item in any_list if item.casefold() in text), None)
-        if hit is not None:
-            passed.append(f"contains one accepted alternative: {hit}")
-        else:
-            failed.append("missing all accepted alternatives: " + " | ".join(any_list))
-
-    for needle in checks.get("none", []):
-        if needle.casefold() in text:
-            failed.append(f"contains prohibited text: {needle}")
-        else:
-            passed.append(f"does not contain: {needle}")
-
+    # Exact output is mechanically verifiable.
     if "exact" in checks:
+        strong_check_count += 1
         actual = clean_exact(answer)
         expected = clean_exact(str(checks["exact"]))
         if actual == expected:
             passed.append(f"exact response: {checks['exact']}")
         else:
-            failed.append(
-                f"expected exact response {checks['exact']!r}; got {answer.strip()!r}"
-            )
+            failed.append(f"expected exact response {checks['exact']!r}")
+            hard_failure = True
+
+    # Numeric values must appear as isolated numeric tokens, avoiding the old
+    # substring bug where 50 could incorrectly match 150.
+    if "numeric_values" in checks:
+        strong_check_count += 1
+        tokens = re.findall(r"(?<![\w.])[-+]?\d+(?:,\d{3})*(?:\.\d+)?%?(?![\w.])", answer)
+        numeric_values = []
+        for token in tokens:
+            try:
+                numeric_values.append(float(token.replace(",", "").rstrip("%")))
+            except ValueError:
+                continue
+        for expected_value in checks["numeric_values"]:
+            expected_number = float(expected_value)
+            found = any(abs(found_number - expected_number) < 1e-8 for found_number in numeric_values)
+            if found:
+                passed.append(f"numeric value present: {expected_value}")
+            else:
+                failed.append(f"numeric value missing: {expected_value}")
+                hard_failure = True
+
+    # Check that the response contains no fabricated/overconfident claim and
+    # does acknowledge that the fact is not accessible/known.
+    if checks.get("unknown_claim"):
+        strong_check_count += 1
+        signals = checks.get("uncertainty_signals", [
+            "cannot access", "can't access", "do not know", "don't know",
+            "cannot know", "can't know", "cannot see", "can't see",
+            "i don't have access", "not able to determine", "can't determine",
+            "cannot determine", "janina", "ami jani na", "wallet dekhte pari na",
+        ])
+        forbidden = checks.get("forbidden_claims", [])
+        hit_signal = next((item for item in signals if item.casefold() in text), None)
+        hit_forbidden = next((item for item in forbidden if item.casefold() in text), None)
+        if hit_forbidden:
+            failed.append(f"unsupported claim detected: {hit_forbidden}")
+            hard_failure = True
+        elif hit_signal:
+            passed.append(f"acknowledges uncertainty/access limits: {hit_signal}")
+        else:
+            failed.append("does not clearly acknowledge missing information")
+            hard_failure = True
+
+    # Numbered-list structure is checkable without claiming the list contents
+    # are semantically correct.
+    if "numbered_items" in checks:
+        strong_check_count += 1
+        numbers = re.findall(r"(?m)^\s*(\d+)[.)]\s+\S", answer)
+        expected_count = int(checks["numbered_items"])
+        if len(numbers) == expected_count and numbers == [str(i) for i in range(1, expected_count + 1)]:
+            passed.append(f"contains exactly {expected_count} sequential numbered items")
+        else:
+            failed.append(f"expected exactly {expected_count} sequential numbered items")
+            hard_failure = True
+
+    # General phrase checks remain useful diagnostic signals, but they are not
+    # proof that a claim or explanation is correct.
+    weak_check_failed = False
+    for needle in checks.get("all", []):
+        if needle.casefold() in text:
+            passed.append(f"contains: {needle}")
+        else:
+            failed.append(f"missing required text: {needle}")
+            weak_check_failed = True
+
+    any_list = checks.get("any", [])
+    if any_list:
+        hit = next((item for item in any_list if item.casefold() in text), None)
+        if hit is not None:
+            passed.append(f"contains one diagnostic phrase: {hit}")
+        else:
+            failed.append("no diagnostic phrase matched: " + " | ".join(any_list))
+            weak_check_failed = True
+
+    for needle in checks.get("none", []):
+        if needle.casefold() in text:
+            failed.append(f"prohibited phrase detected: {needle}")
+            hard_failure = True
+        else:
+            passed.append(f"does not contain prohibited phrase: {needle}")
 
     count = word_count(answer)
     if "min_words" in checks:
@@ -104,33 +175,127 @@ def evaluate(answer: str, checks: dict[str, Any] | None) -> dict[str, Any]:
             passed.append(f"word count >= {checks['min_words']}")
         else:
             failed.append(f"word count {count} below minimum {checks['min_words']}")
+            weak_check_failed = True
     if "max_words" in checks:
         if count <= int(checks["max_words"]):
             passed.append(f"word count <= {checks['max_words']}")
         else:
             failed.append(f"word count {count} above maximum {checks['max_words']}")
+            weak_check_failed = True
 
     script = checks.get("script")
     if script == "bengali":
-        count_bengali = sum("\u0980" <= char <= "\u09ff" for char in answer)
+        count_bengali = sum("\\u0980" <= char <= "\\u09ff" for char in answer)
         if count_bengali > 0:
             passed.append("contains Bengali script")
         else:
             failed.append("expected Bengali script but none was detected")
+            weak_check_failed = True
     elif script == "latin":
-        count_bengali = sum("\u0980" <= char <= "\u09ff" for char in answer)
+        count_bengali = sum("\\u0980" <= char <= "\\u09ff" for char in answer)
         count_latin = sum(("a" <= char.lower() <= "z") for char in answer)
         if count_bengali == 0 and count_latin > 0:
             passed.append("uses Latin script")
         else:
             failed.append("expected Latin-script response")
+            weak_check_failed = True
+
+    # Lightweight contradiction checks are intentionally fail-fast only for
+    # clearly explicit counter-signals; a positive phrase hit remains REVIEW.
+    rule = checks.get("semantic_rule")
+    review_reason = None
+    if rule == "non_entailment":
+        bad = checks.get("positive_claims", [
+            "yes, it follows", "it follows that some roses", "must include at least some",
+            "some roses fade quickly because", "therefore some roses fade quickly",
+        ])
+        good = checks.get("negative_claims", [
+            "does not follow", "do not follow", "cannot conclude", "can't conclude",
+            "not necessarily", "not enough information", "could all be non-roses",
+            "may not be roses", "might not be roses",
+        ])
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        hit_good = next((item for item in good if item.casefold() in text), None)
+        if hit_bad:
+            failed.append(f"likely invalid entailment: {hit_bad}")
+            hard_failure = True
+        elif hit_good:
+            passed.append(f"likely recognizes non-entailment: {hit_good}")
+            review_reason = "Reasoning explanation is semantic; phrase match alone cannot certify it."
+        else:
+            review_reason = "Could not reliably determine the logical conclusion using a simple rule."
+    elif rule == "causation":
+        bad = checks.get("positive_claims", [
+            "yes, carrying an umbrella causes rain", "carrying an umbrella causes rain",
+            "this proves causation", "therefore it causes rain",
+        ])
+        good = checks.get("negative_claims", [
+            "not justified", "does not prove causation", "doesn't prove causation",
+            "correlation", "coincidence", "does not establish", "doesn't establish",
+            "does not mean", "doesn't mean",
+        ])
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        hit_good = next((item for item in good if item.casefold() in text), None)
+        if hit_bad:
+            failed.append(f"likely unsupported causal claim: {hit_bad}")
+            hard_failure = True
+        elif hit_good:
+            passed.append(f"likely distinguishes correlation from causation: {hit_good}")
+            review_reason = "Causal reasoning still needs semantic review."
+        else:
+            review_reason = "Causal reasoning needs manual review."
+    elif rule == "uncertainty":
+        bad = checks.get("positive_claims", [
+            "the ball is red", "the ball is blue", "it is definitely red",
+            "it is definitely blue", "your friend is definitely angry",
+            "this proves they are angry",
+        ])
+        good = checks.get("negative_claims", [
+            "cannot be determined", "can't be determined", "could be either",
+            "not enough information", "does not prove", "doesn't prove",
+            "not necessarily", "many explanations", "other explanations",
+            "don't know", "do not know",
+        ])
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        hit_good = next((item for item in good if item.casefold() in text), None)
+        if hit_bad:
+            failed.append(f"likely overconfident conclusion: {hit_bad}")
+            hard_failure = True
+        elif hit_good:
+            passed.append(f"acknowledges uncertainty: {hit_good}")
+        else:
+            review_reason = "Uncertainty recognition requires manual review."
+    elif rule == "clarification":
+        questions = ["?", "what do you mean", "which task", "what task",
+                     "kon kaj", "konta", "ki korte", "ki bolte", "ki kaj"]
+        if any(item in text for item in questions):
+            passed.append("appears to ask a clarifying question")
+            review_reason = "Manual review should confirm the question is specific to the ambiguity."
+        else:
+            failed.append("no clear clarifying question detected")
+            hard_failure = True
+
+    if hard_failure:
+        status = "FAIL"
+    elif mode == "qualitative":
+        status = "REVIEW"
+        review_reason = review_reason or "Language quality or semantic correctness cannot be certified by keyword checks."
+    elif mode == "screening":
+        status = "REVIEW"
+        review_reason = review_reason or "Simple keyword/script/length checks are diagnostic signals, not proof of correctness."
+    elif strong_check_count > 0 and not weak_check_failed:
+        status = "PASS"
+    else:
+        status = "REVIEW"
+        review_reason = review_reason or "No sufficiently strong deterministic check was available."
 
     return {
-        "status": "FAIL" if failed else "PASS",
+        "status": status,
+        "evaluation_mode": mode,
         "passed": passed,
         "failed": failed,
         "word_count": count,
-        "note": "",
+        "review_reason": review_reason or "",
     }
 
 
@@ -200,6 +365,7 @@ def run_test(
     note: str,
     config: dict[str, Any],
     history: list[dict[str, str]] | None = None,
+    evaluation_mode: str = "screening",
 ) -> dict[str, Any]:
     system_prompt = str(config.get("system_prompt", "You are PHANTOM, a careful assistant."))
     messages = history if history is not None else [{"role": "system", "content": system_prompt}]
@@ -217,7 +383,7 @@ def run_test(
     try:
         result = call_model(config, messages)
         answer = result["answer"]
-        evaluation = evaluate(answer, checks)
+        evaluation = evaluate(answer, checks, evaluation_mode)
         record = {**base, **result, **evaluation}
         messages.append({"role": "assistant", "content": answer})
     except Exception as exc:
@@ -288,6 +454,8 @@ def write_reports(
             "",
             f"**Category:** {record.get('category', 'unknown')}",
             "",
+            f"**Evaluation mode:** {record.get('evaluation_mode', 'screening')}",
+            "",
             "**Prompt**",
             "",
             str(record.get("prompt", "")),
@@ -302,6 +470,9 @@ def write_reports(
             lines.append("")
         if record.get("failed"):
             lines.append("**Checks failed:** " + "; ".join(record["failed"]))
+            lines.append("")
+        if record.get("review_reason"):
+            lines.append("**Review reason:** " + str(record["review_reason"]))
             lines.append("")
         if record.get("evaluation_note"):
             lines.append("**Evaluation note:** " + str(record["evaluation_note"]))
@@ -384,6 +555,7 @@ def main() -> int:
             checks=test.get("checks", {}),
             note=test.get("evaluation_note", ""),
             config=config,
+            evaluation_mode=test.get("evaluation_mode", "screening"),
         )
         records.append(record)
         print(f"Status: {record['status']} | Time: {record.get('elapsed_seconds', 'n/a')}s")
@@ -406,6 +578,7 @@ def main() -> int:
                 note=turn.get("evaluation_note", ""),
                 config=config,
                 history=history,
+                evaluation_mode=turn.get("evaluation_mode", "screening"),
             )
             records.append(record)
             print(f"Status: {record['status']} | Time: {record.get('elapsed_seconds', 'n/a')}s")
