@@ -20,7 +20,7 @@ BENCHMARKS = ROOT / "tests" / "benchmarks.json"
 LOCAL_RESULTS = ROOT / "local_results"
 LOCAL_REPORTS = ROOT / "local_reports"
 PUBLIC_REPORT = ROOT / "public_reports" / "latest.md"
-EVALUATOR_VERSION = "1.3"
+EVALUATOR_VERSION = "1.4"
 
 
 def now_local() -> datetime:
@@ -468,7 +468,7 @@ def run_test(
     system_prompt = str(config.get("system_prompt", "You are PHANTOM, a careful assistant."))
     guide_path = ROOT / "prompts" / "guardrails.md"
     if guide_path.exists():
-        system_prompt += "\\n\\n" + guide_path.read_text(encoding="utf-8").strip()
+        system_prompt += "\n\n" + guide_path.read_text(encoding="utf-8").strip()
     messages = history if history is not None else [{"role": "system", "content": system_prompt}]
     if history is not None and not history:
         messages.append({"role": "system", "content": system_prompt})
