@@ -12,6 +12,18 @@ Automatic local-model experiments and reports for **PHANTOM**, using Qwen throug
 - The only report designed for GitHub is `public_reports/latest.md`: timestamp, model label, predefined test IDs/categories, and status counts. It does **not** include prompts, generated answers, raw exception text, or personal chat history.
 - `run_phantom.bat` runs the suite and pushes only the safe summary when this repository is cloned with Git and push access is configured. If publishing fails, local reports remain available.
 
+## Interactive local assistant
+
+The experimental agent runtime is separate from the benchmark runner. It uses the same local LM Studio endpoint and standard-library Python only.
+
+Run from the repository folder:
+
+```powershell
+python phantom_assistant.py
+```
+
+The assistant has a bounded, allow-listed tool loop: exact arithmetic, local computer time, safe workspace search/read, and opt-in local memory. It does not execute shell commands or arbitrary code, browse the internet, or write project files. Memory is stored under the ignored `memory/` folder and can only be saved when the current user message explicitly requests it; no conversation transcript is persisted. Tool traces contain only tool names/status/timing and are ignored by Git. LM Studio's OpenAI-compatible endpoint/model chat template must support tool calling for those tools to work.
+
 ## First-time setup on Windows
 
 Requirements: Python 3.12 (or a compatible modern Python) and Git. LM Studio should be running Qwen3-8B with the local server enabled on port 1234.
