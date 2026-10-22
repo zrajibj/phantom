@@ -331,7 +331,8 @@
           "jackfruit",
           "durian",
           "dragon fruit"
-        ]
+        ],
+        "only_numbered_items": true
       },
       "evaluation_note": "Check that there are exactly three numbered fruit lines and no extra prose during manual review.",
       "evaluation_mode": "deterministic"
