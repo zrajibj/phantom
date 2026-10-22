@@ -48,3 +48,6 @@ jobs:
           print(f"Validated {len(data['tests'])} single-turn tests and "
                 f"{sum(len(s['turns']) for s in data.get('scenarios', []))} scenario turns.")
           PY
+
+      - name: Run evaluator regression tests
+        run: python -m unittest discover -s tests -v
