@@ -20,6 +20,9 @@ models/
 *.pth
 
 # Local run results can include private prompts and responses
+local_results/
+local_reports/
+config.local.json
 results/
 reports/
 artifacts/
