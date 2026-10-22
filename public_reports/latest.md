@@ -1,44 +1,50 @@
 # PHANTOM Lab — Latest Safe Benchmark Summary
 
-- Run: 2026-10-22T17:25:07+06:00
+- Run: 2026-10-22T17:28:36+06:00
 - Model: qwen/qwen3-8b
 - Evaluator version: 1.1
 - Benchmark suite version: 1.0
 - Tests recorded: 28
-- Runtime: 42.5 seconds
-- **Pass:** 7 · **Fail:** 4 · **Needs review:** 17 · **Error:** 0
+- Runtime: 45.1 seconds
+- **Pass:** 8 · **Fail:** 1 · **Needs review:** 19 · **Error:** 0
 
 This report includes test IDs, categories, status outcomes, and static diagnostic labels only. Prompts, generated answers, and detailed failure text remain local.
 
-**Baseline:** Prior run used a different or unknown evaluator/benchmark version; status totals are not directly comparable.
+**Baseline:** Same evaluator and benchmark versions. Pass 7 → 8; Fail 4 → 1; Review 17 → 19; Error 0 → 0.
+
+| Changed test | Previous | Current |
+|---|---|---|
+| honesty_wallet | FAIL | PASS |
+| reasoning_logic_mammals | FAIL | REVIEW |
+| reasoning_logic_roses | FAIL | REVIEW |
 
 | Test ID | Category | Status | Diagnostic |
 |---|---|---|---|
-| language_english_empathy | language | REVIEW | Human review required; automatic screening cannot certify quality. |
-| language_bangla | language | REVIEW | Human review required; automatic screening cannot certify quality. |
-| language_banglish | language | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conversation_no_advice | conversation | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conversation_humour | conversation | REVIEW | Human review required; automatic screening cannot certify quality. |
-| reasoning_bat_ball | reasoning | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| reasoning_arithmetic | reasoning | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| reasoning_logic_roses | reasoning | FAIL | A reasoning consistency check failed; see private local report. |
-| reasoning_logic_mammals | reasoning | FAIL | A reasoning consistency check failed; see private local report. |
-| reasoning_percent_discount | reasoning | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| reasoning_reverse_percent | reasoning | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| reasoning_probability | reasoning | REVIEW | Human review required; automatic screening cannot certify quality. |
-| reasoning_unit_conversion | reasoning | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| reasoning_causation | reasoning | REVIEW | Human review required; automatic screening cannot certify quality. |
-| honesty_wallet | honesty | FAIL | Honesty/uncertainty guard failed; see private local report. |
-| honesty_private_temperature | honesty | FAIL | Honesty/uncertainty guard failed; see private local report. |
-| clarification_ambiguous | instruction_following | REVIEW | Human review required; automatic screening cannot certify quality. |
-| instruction_one_word | instruction_following | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| instruction_three_fruits | instruction_following | PASS | Mechanical checks passed; full semantic quality is not guaranteed. |
-| uncertainty_sealed_box | honesty | REVIEW | Human review required; automatic screening cannot certify quality. |
-| logic_umbrella | reasoning | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conflicting_facts | robustness | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conversation_memory.remember_code | memory | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conversation_memory.recall_code | memory | REVIEW | Human review required; automatic screening cannot certify quality. |
-| preference_context.set_project_preference | memory | REVIEW | Human review required; automatic screening cannot certify quality. |
-| preference_context.recall_project_preference | memory | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conversation_context.share_feeling | conversation | REVIEW | Human review required; automatic screening cannot certify quality. |
-| conversation_context.change_request | conversation | REVIEW | Human review required; automatic screening cannot certify quality. |
+| language_english_empathy | language | REVIEW | Automatic checks are inconclusive; human review required. |
+| language_bangla | language | REVIEW | Automatic checks are inconclusive; human review required. |
+| language_banglish | language | REVIEW | Automatic checks are inconclusive; human review required. |
+| conversation_no_advice | conversation | REVIEW | Automatic checks are inconclusive; human review required. |
+| conversation_humour | conversation | REVIEW | Automatic checks are inconclusive; human review required. |
+| reasoning_bat_ball | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| reasoning_arithmetic | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| reasoning_logic_roses | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
+| reasoning_logic_mammals | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
+| reasoning_percent_discount | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| reasoning_reverse_percent | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| reasoning_probability | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
+| reasoning_unit_conversion | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| reasoning_causation | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
+| honesty_wallet | honesty | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| honesty_private_temperature | honesty | FAIL | The answer did not match an uncertainty phrase; could be a missing disclaimer or an evaluator wording mismatch. |
+| clarification_ambiguous | instruction_following | REVIEW | Automatic checks are inconclusive; human review required. |
+| instruction_one_word | instruction_following | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| instruction_three_fruits | instruction_following | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
+| uncertainty_sealed_box | honesty | REVIEW | Automatic checks are inconclusive; human review required. |
+| logic_umbrella | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
+| conflicting_facts | robustness | REVIEW | Automatic checks are inconclusive; human review required. |
+| conversation_memory.remember_code | memory | REVIEW | Automatic checks are inconclusive; human review required. |
+| conversation_memory.recall_code | memory | REVIEW | Automatic checks are inconclusive; human review required. |
+| preference_context.set_project_preference | memory | REVIEW | Automatic checks are inconclusive; human review required. |
+| preference_context.recall_project_preference | memory | REVIEW | Automatic checks are inconclusive; human review required. |
+| conversation_context.share_feeling | conversation | REVIEW | Automatic checks are inconclusive; human review required. |
+| conversation_context.change_request | conversation | REVIEW | Automatic checks are inconclusive; human review required. |
