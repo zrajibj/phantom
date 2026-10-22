@@ -1,11 +1,11 @@
 # PHANTOM Lab — Latest Safe Benchmark Summary
 
-- Run: 2026-10-22T17:46:42+06:00
+- Run: 2026-10-22T17:50:30+06:00
 - Model: qwen/qwen3-8b
-- Evaluator version: 1.2
+- Evaluator version: 1.3
 - Benchmark suite version: 1.1
 - Tests recorded: 28
-- Runtime: 41.8 seconds
+- Runtime: 42.2 seconds
 - **Pass:** 8 · **Fail:** 1 · **Needs review:** 19 · **Error:** 0
 
 This report includes test IDs, categories, status outcomes, and static diagnostic labels only. Prompts, generated answers, and detailed failure text remain local.
