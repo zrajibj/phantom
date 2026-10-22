@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,6 +65,36 @@ class AgentToolTests(unittest.TestCase):
             agent.validate_local_url("https://example.com/v1")
         with self.assertRaises(ValueError):
             agent.validate_local_url("http://192.168.1.12:1234/v1")
+
+    def test_context_trimming_keeps_complete_turn_boundary(self):
+        messages = [{"role": "system", "content": "system"}]
+        for i in range(15):
+            messages.extend([
+                {"role": "user", "content": f"question {i}"},
+                {"role": "assistant", "content": f"answer {i}"},
+            ])
+        trimmed = agent.trim_conversation(messages, max_context_messages=8)
+        self.assertEqual(trimmed[0]["role"], "system")
+        self.assertEqual(trimmed[1]["role"], "user")
+        self.assertLessEqual(len(trimmed) - 1, 8)
+
+    def test_workspace_search_skips_external_symlink(self):
+        with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as outside:
+            workspace_root = Path(workspace)
+            outside_file = Path(outside) / "private.txt"
+            outside_file.write_text("phantom private marker", encoding="utf-8")
+            link = workspace_root / "linked_note.txt"
+            try:
+                link.symlink_to(outside_file)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlink creation is unavailable on this machine.")
+            original_root = agent.ROOT
+            try:
+                agent.ROOT = workspace_root
+                result = agent.search_workspace({"query": "private marker"})
+                self.assertEqual(result["results"], [])
+            finally:
+                agent.ROOT = original_root
 
     def test_workspace_traversal_is_blocked(self):
         with self.assertRaises(ValueError):
