@@ -1,6 +1,6 @@
 import unittest
 
-from phantom_lab import evaluate
+from phantom_lab import evaluate, phrase_is_asserted
 
 
 class EvaluatorTests(unittest.TestCase):
@@ -57,6 +57,21 @@ class EvaluatorTests(unittest.TestCase):
         good = evaluate("No, it does not follow; those flowers may not be roses.", checks, "qualitative")
         self.assertEqual(wrong["status"], "FAIL")
         self.assertEqual(good["status"], "REVIEW")
+
+    def test_negated_claim_is_not_treated_as_asserted(self):
+        self.assertFalse(phrase_is_asserted("A cat is not a reptile.", "a cat is a reptile"))
+        self.assertFalse(phrase_is_asserted("It does not follow that some roses fade quickly.", "it follows that some roses"))
+        self.assertTrue(phrase_is_asserted("Yes, it follows that some roses fade quickly.", "it follows that some roses"))
+
+    def test_temperature_alternative_disclaimers_are_recognized(self):
+        checks = {
+            "unknown_claim": True,
+            "value_type": "temperature",
+            "uncertainty_signals": ["cannot access", "thermometer", "smart thermostat"],
+            "forbidden_claims": [],
+        }
+        self.assertEqual(evaluate("You would need a thermometer to check that.", checks, "deterministic")["status"], "PASS")
+        self.assertEqual(evaluate("A smart thermostat could give you a live reading.", checks, "deterministic")["status"], "PASS")
 
     def test_script_detection_never_certifies_language_quality(self):
         result = evaluate(
