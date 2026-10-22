@@ -466,6 +466,9 @@ def run_test(
     suite_version: str = "unknown",
 ) -> dict[str, Any]:
     system_prompt = str(config.get("system_prompt", "You are PHANTOM, a careful assistant."))
+    guide_path = ROOT / "prompts" / "guardrails.md"
+    if guide_path.exists():
+        system_prompt += "\\n\\n" + guide_path.read_text(encoding="utf-8").strip()
     messages = history if history is not None else [{"role": "system", "content": system_prompt}]
     if history is not None and not history:
         messages.append({"role": "system", "content": system_prompt})
