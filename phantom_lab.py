@@ -163,6 +163,17 @@ def evaluate(
                 else:
                     passed.append(f"numbered item {number} contains an allowed fruit")
 
+        if checks.get("only_numbered_items"):
+            nonempty_lines = [line for line in answer.splitlines() if line.strip()]
+            if len(nonempty_lines) != len(entries):
+                failed.append("contains extra text outside the numbered list")
+                hard_failure = True
+            elif any(not re.match(r"^\s*\d+[.)]\s+\S", line) for line in nonempty_lines):
+                failed.append("contains non-list text outside the numbered items")
+                hard_failure = True
+            else:
+                passed.append("contains no extra prose outside the numbered list")
+
     # Phrase, length and script checks are screening evidence only.
     for needle in checks.get("all", []):
         if needle.casefold() in text:
