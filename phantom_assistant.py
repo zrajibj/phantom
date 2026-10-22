@@ -184,6 +184,12 @@ def search_workspace(args: dict[str, Any]) -> dict[str, Any]:
     for path in ROOT.rglob("*"):
         if not path.is_file() or _ignored_path(path):
             continue
+        # Resolve every search candidate too: a symlink to an external text
+        # file must not bypass safe_workspace_file()'s workspace boundary.
+        try:
+            path.resolve().relative_to(ROOT.resolve())
+        except (ValueError, OSError, RuntimeError):
+            continue
         scanned += 1
         if scanned > MAX_SEARCH_FILES:
             break
