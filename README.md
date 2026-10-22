@@ -42,9 +42,14 @@ After the safe summary is pushed, ChatGPT can read:
 
 Ask for an analysis of the latest PHANTOM run. For detailed diagnosis, inspect or attach `local_reports/latest.md`; full responses intentionally stay on your own PC by default.
 
-## Evaluator limitations
+## Evaluator confidence levels
 
-Checks in this first version are deterministic keyword/script/format screens, not a perfect judge of truth or language quality. Qualitative cases are marked `REVIEW` instead of being falsely declared passed. Treat results as diagnostics, not a scientific measure of general intelligence.
+- `PASS`: only for a narrow deterministic check such as exact output, required numeric values appearing as numeric tokens, guarded unknown-fact honesty, or a valid numbered list. This still does not prove the entire explanation is correct.
+- `FAIL`: a deterministic mismatch or a clearly detected unsafe/contradictory claim.
+- `REVIEW`: any quality or reasoning judgment that depends on meaning, naturalness, empathy, or context. A matching keyword or correct script alone is not enough to pass.
+- `ERROR`: the model could not be called or the test could not complete.
+
+The evaluator is deliberately conservative. Numeric checks verify that requested values appear, not that every sentence is mathematically valid. Logic and causal reasoning remain `REVIEW` unless a clearly contradictory response is detected. Treat results as diagnostics, not a scientific measure of general intelligence.
 
 ## Security
 
