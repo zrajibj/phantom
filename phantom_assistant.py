@@ -438,6 +438,25 @@ def chat_turn(config: dict[str, Any], messages: list[dict[str, Any]], latest_use
             })
 
 
+def trim_conversation(messages: list[dict[str, Any]], max_context_messages: int = 24) -> list[dict[str, Any]]:
+    """Trim old history only at a user-turn boundary to avoid orphaned tool messages."""
+    if not messages:
+        return []
+    has_system = messages[0].get("role") == "system"
+    system_message = messages[0] if has_system else None
+    history = messages[1:] if has_system else messages
+    if len(history) <= max_context_messages:
+        return messages[:]
+    start = max(0, len(history) - max_context_messages)
+    while start < len(history) and history[start].get("role") != "user":
+        start += 1
+    trimmed = history[start:]
+    if not trimmed:
+        # If no complete user turn remains, reset to the system prompt only.
+        return [system_message] if system_message else []
+    return ([system_message] if system_message else []) + trimmed
+
+
 def main() -> int:
     config_path = CONFIG_LOCAL if CONFIG_LOCAL.exists() else CONFIG_EXAMPLE
     if not config_path.exists():
@@ -487,7 +506,7 @@ def main() -> int:
             messages.append({"role": "assistant", "content": answer})
             # Keep the system prompt plus a bounded recent context, preventing unbounded context growth.
             if len(messages) > 25:
-                messages = [messages[0]] + messages[-24:]
+                messages = trim_conversation(messages, max_context_messages=24)
         except Exception as exc:
             print(f"Runtime error: {exc}")
             # Avoid keeping a potentially malformed partial tool-call sequence after an error.
