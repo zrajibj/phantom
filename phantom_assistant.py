@@ -385,7 +385,6 @@ def chat_turn(config: dict[str, Any], messages: list[dict[str, Any]], latest_use
     while True:
         message = request_model(config, messages, tools_enabled=rounds < MAX_TOOL_ROUNDS)
         tool_calls = message.get("tool_calls") or []
-        messages.append(message)
         if not tool_calls:
             content = message.get("content") or ""
             if isinstance(content, list):
@@ -394,6 +393,7 @@ def chat_turn(config: dict[str, Any], messages: list[dict[str, Any]], latest_use
                     for part in content
                 )
             return str(content).strip() or "(Model returned an empty response.)"
+        messages.append(message)
         if rounds >= MAX_TOOL_ROUNDS:
             return "PHANTOM stopped because the tool-call limit was reached. Please narrow the task and try again."
         rounds += 1
