@@ -110,6 +110,14 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(phrase_is_asserted("It does not follow that some roses fade quickly.", "it follows that some roses"))
         self.assertTrue(phrase_is_asserted("Yes, it follows that some roses fade quickly.", "it follows that some roses"))
 
+    def test_categorical_question_does_not_trigger_hard_failure(self):
+        result = evaluate(
+            "A cat is a reptile? No, it cannot be a reptile under these premises.",
+            {"semantic_rule": "categorical_contradiction"},
+            "qualitative",
+        )
+        self.assertEqual(result["status"], "REVIEW")
+
     def test_question_or_quoted_claim_does_not_create_false_positive(self):
         self.assertFalse(phrase_is_asserted(
             "A cat is a reptile? No, it cannot be under these premises.",
