@@ -43,3 +43,7 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# PHANTOM assistant personal data and metadata-only traces
+memory/
+local_traces/
