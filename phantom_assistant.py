@@ -335,6 +335,16 @@ def load_runtime_prompt(config: dict[str, Any]) -> str:
     return "\n\n".join(parts)
 
 
+def strip_hidden_thinking(text: str) -> str:
+    """Never display explicit Qwen <think> segments in the user-facing answer."""
+    if not isinstance(text, str):
+        return ""
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL)
+    # If a malformed/incomplete thinking tag leaks into content, fail closed.
+    text = re.sub(r"<think>.*$", "", text, flags=re.IGNORECASE | re.DOTALL)
+    return text.strip()
+
+
 def request_model(config: dict[str, Any], messages: list[dict[str, Any]], tools_enabled: bool) -> dict[str, Any]:
     base_url = validate_local_url(str(config.get("api_base_url", "http://127.0.0.1:1234/v1")))
     payload: dict[str, Any] = {
@@ -347,7 +357,9 @@ def request_model(config: dict[str, Any], messages: list[dict[str, Any]], tools_
     if tools_enabled:
         payload["tools"] = TOOLS
         payload["tool_choice"] = "auto"
-    if config.get("append_no_think", True) and messages and messages[-1].get("role") == "user":
+    # The benchmark runner can force no-think, but the assistant leaves Qwen's
+    # configured thinking behavior enabled by default for multi-step tasks.
+    if config.get("assistant_append_no_think", False) and messages and messages[-1].get("role") == "user":
         messages = [dict(item) for item in messages]
         messages[-1]["content"] = str(messages[-1].get("content", "")).rstrip() + " /no_think"
         payload["messages"] = messages
@@ -392,7 +404,8 @@ def chat_turn(config: dict[str, Any], messages: list[dict[str, Any]], latest_use
                     str(part.get("text", "")) if isinstance(part, dict) else str(part)
                     for part in content
                 )
-            return str(content).strip() or "(Model returned an empty response.)"
+            visible = strip_hidden_thinking(str(content))
+            return visible or "(Model returned an empty response.)"
         messages.append(message)
         if rounds >= MAX_TOOL_ROUNDS:
             return "PHANTOM stopped because the tool-call limit was reached. Please narrow the task and try again."
