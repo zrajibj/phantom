@@ -75,7 +75,7 @@ def phrase_is_asserted(text: str, phrase: str) -> bool:
         # that is false.") is not evidence that the writer asserts the claim.
         tail = folded[match.end():]
         next_punctuation = re.search(r"[.!?\n]", tail)
-        if next_punctuation and tail[:next_punctuation.start()].strip().endswith("?"):
+        if next_punctuation and tail[next_punctuation.start()] == "?":
             continue
         return True
     return False
