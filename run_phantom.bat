@@ -24,6 +24,16 @@ if errorlevel 1 (
     goto finish_error
 )
 
+git rev-parse --is-inside-work-tree >nul 2>&1
+if not errorlevel 1 (
+    git remote get-url origin >nul 2>&1
+    if not errorlevel 1 (
+        echo Updating PHANTOM code and benchmarks from GitHub...
+        git pull --ff-only
+        if errorlevel 1 echo WARNING: Update failed; continuing with local copy.
+    )
+)
+
 python phantom_lab.py --config config.local.json
 set "PHANTOM_EXIT=%ERRORLEVEL%"
 
