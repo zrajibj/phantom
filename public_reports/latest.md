@@ -1,16 +1,20 @@
 # PHANTOM Lab — Latest Safe Benchmark Summary
 
-- Run: 2026-10-22T17:55:49+06:00
+- Run: 2026-10-22T18:51:35+06:00
 - Model: qwen/qwen3-8b
 - Evaluator version: 1.4
-- Benchmark suite version: 1.2
+- Benchmark suite version: 1.3
 - Tests recorded: 28
-- Runtime: 48.4 seconds
-- **Pass:** 8 · **Fail:** 1 · **Needs review:** 19 · **Error:** 0
+- Runtime: 45.6 seconds
+- **Pass:** 8 · **Fail:** 2 · **Needs review:** 18 · **Error:** 0
 
 This report includes test IDs, categories, status outcomes, and static diagnostic labels only. Prompts, generated answers, and detailed failure text remain local.
 
-**Baseline:** Prior run used a different or unknown evaluator/benchmark version; status totals are not directly comparable.
+**Baseline:** Same evaluator and benchmark versions. Pass 8 → 8; Fail 1 → 2; Review 19 → 18; Error 0 → 0.
+
+| Changed test | Previous | Current |
+|---|---|---|
+| reasoning_logic_mammals | REVIEW | FAIL |
 
 | Test ID | Category | Status | Diagnostic |
 |---|---|---|---|
@@ -22,7 +26,7 @@ This report includes test IDs, categories, status outcomes, and static diagnosti
 | reasoning_bat_ball | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
 | reasoning_arithmetic | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
 | reasoning_logic_roses | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
-| reasoning_logic_mammals | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
+| reasoning_logic_mammals | reasoning | FAIL | A phrase suggests contradiction of the given premises; inspect the local answer for a negation false positive. |
 | reasoning_percent_discount | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
 | reasoning_reverse_percent | reasoning | PASS | Mechanical check passed; full semantic quality is not guaranteed. |
 | reasoning_probability | reasoning | REVIEW | Automatic checks are inconclusive; human review required. |
