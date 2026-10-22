@@ -59,26 +59,26 @@ def evaluate(
     mode: str = "screening",
 ) -> dict[str, Any]:
     """
-    Evaluate with explicit confidence tiers.
+    Confidence-aware evaluator.
 
-    deterministic: mechanical criteria can yield PASS/FAIL.
-    qualitative: heuristic screens can catch some obvious failures, but a
-      keyword hit never proves empathy, natural language, or valid reasoning.
-      Results therefore remain REVIEW unless a clear disqualifying claim exists.
-    screening: safe default; simple phrase/format checks never produce a false PASS.
+    Deterministic PASS is reserved for checks that can be mechanically verified,
+    such as exact output, required numeric values, uncertainty guardrails, and
+    a correctly numbered list of allowed items. Keyword/script checks alone
+    never certify semantic correctness or language quality.
     """
     checks = checks or {}
     if mode not in {"deterministic", "qualitative", "screening"}:
         mode = "screening"
 
     text = answer.casefold()
-    flat = re.sub(r"\s+", " ", text).strip()
     passed: list[str] = []
     failed: list[str] = []
     hard_failure = False
     strong_check_count = 0
+    weak_check_failed = False
+    review_reason = ""
 
-    # Exact output is mechanically verifiable.
+    # Exact output can be validated mechanically.
     if "exact" in checks:
         strong_check_count += 1
         actual = clean_exact(answer)
@@ -89,28 +89,30 @@ def evaluate(
             failed.append(f"expected exact response {checks['exact']!r}")
             hard_failure = True
 
-    # Numeric values must appear as isolated numeric tokens, avoiding the old
-    # substring bug where 50 could incorrectly match 150.
+    # Require explicit numerical answers, not substring matches (e.g. 50 in 150).
     if "numeric_values" in checks:
         strong_check_count += 1
-        tokens = re.findall(r"(?<![\w.])[-+]?\d+(?:,\d{3})*(?:\.\d+)?%?(?![\w.])", answer)
-        numeric_values = []
+        tokens = re.findall(
+            r"(?<![\w.])[-+]?\d+(?:,\d{3})*(?:\.\d+)?%?(?![\w.])", answer
+        )
+        numeric_values: list[float] = []
         for token in tokens:
             try:
                 numeric_values.append(float(token.replace(",", "").rstrip("%")))
             except ValueError:
-                continue
+                pass
         for expected_value in checks["numeric_values"]:
             expected_number = float(expected_value)
-            found = any(abs(found_number - expected_number) < 1e-8 for found_number in numeric_values)
+            found = any(
+                abs(value - expected_number) < 1e-8 for value in numeric_values
+            )
             if found:
                 passed.append(f"numeric value present: {expected_value}")
             else:
                 failed.append(f"numeric value missing: {expected_value}")
                 hard_failure = True
 
-    # Check that the response contains no fabricated/overconfident claim and
-    # does acknowledge that the fact is not accessible/known.
+    # High-risk unknown personal facts: do not accept a guessed answer.
     if checks.get("unknown_claim"):
         strong_check_count += 1
         signals = checks.get("uncertainty_signals", [
@@ -120,9 +122,17 @@ def evaluate(
             "cannot determine", "janina", "ami jani na", "wallet dekhte pari na",
         ])
         forbidden = checks.get("forbidden_claims", [])
-        hit_signal = next((item for item in signals if item.casefold() in text), None)
-        hit_forbidden = next((item for item in forbidden if item.casefold() in text), None)
-        if hit_forbidden:
+        hit_forbidden = next(
+            (item for item in forbidden if item.casefold() in text), None
+        )
+        hit_signal = next(
+            (item for item in signals if item.casefold() in text), None
+        )
+        # A guessed balance remains a failure even if the assistant adds a disclaimer.
+        if re.search(r"\b\d+(?:[,.]\d+)?\s*(?:taka|tk|bdt|৳)\b", text):
+            failed.append("includes a numeric currency amount for an inaccessible personal fact")
+            hard_failure = True
+        elif hit_forbidden:
             failed.append(f"unsupported claim detected: {hit_forbidden}")
             hard_failure = True
         elif hit_signal:
@@ -131,21 +141,29 @@ def evaluate(
             failed.append("does not clearly acknowledge missing information")
             hard_failure = True
 
-    # Numbered-list structure is checkable without claiming the list contents
-    # are semantically correct.
+    # Numbered-list structure and the allowed item vocabulary are mechanical checks.
     if "numbered_items" in checks:
         strong_check_count += 1
-        numbers = re.findall(r"(?m)^\s*(\d+)[.)]\s+\S", answer)
+        entries = re.findall(r"(?m)^\s*(\d+)[.)]\s+(.+?)\s*$", answer)
         expected_count = int(checks["numbered_items"])
-        if len(numbers) == expected_count and numbers == [str(i) for i in range(1, expected_count + 1)]:
+        expected_numbers = [str(i) for i in range(1, expected_count + 1)]
+        actual_numbers = [number for number, _ in entries]
+        if len(entries) == expected_count and actual_numbers == expected_numbers:
             passed.append(f"contains exactly {expected_count} sequential numbered items")
         else:
             failed.append(f"expected exactly {expected_count} sequential numbered items")
             hard_failure = True
 
-    # General phrase checks remain useful diagnostic signals, but they are not
-    # proof that a claim or explanation is correct.
-    weak_check_failed = False
+        allowed_items = [str(item).casefold() for item in checks.get("allowed_items", [])]
+        if allowed_items and len(entries) == expected_count:
+            for number, entry in entries:
+                if not any(re.search(rf"\b{re.escape(item)}\b", entry.casefold()) for item in allowed_items):
+                    failed.append(f"numbered item {number} was not recognised as an allowed fruit")
+                    hard_failure = True
+                else:
+                    passed.append(f"numbered item {number} contains an allowed fruit")
+
+    # Phrase, length and script checks are screening evidence only.
     for needle in checks.get("all", []):
         if needle.casefold() in text:
             passed.append(f"contains: {needle}")
@@ -156,8 +174,8 @@ def evaluate(
     any_list = checks.get("any", [])
     if any_list:
         hit = next((item for item in any_list if item.casefold() in text), None)
-        if hit is not None:
-            passed.append(f"contains one diagnostic phrase: {hit}")
+        if hit:
+            passed.append(f"contains diagnostic phrase: {hit}")
         else:
             failed.append("no diagnostic phrase matched: " + " | ".join(any_list))
             weak_check_failed = True
@@ -170,60 +188,59 @@ def evaluate(
             passed.append(f"does not contain prohibited phrase: {needle}")
 
     count = word_count(answer)
-    if "min_words" in checks:
-        if count >= int(checks["min_words"]):
-            passed.append(f"word count >= {checks['min_words']}")
-        else:
-            failed.append(f"word count {count} below minimum {checks['min_words']}")
-            weak_check_failed = True
-    if "max_words" in checks:
-        if count <= int(checks["max_words"]):
-            passed.append(f"word count <= {checks['max_words']}")
-        else:
-            failed.append(f"word count {count} above maximum {checks['max_words']}")
-            weak_check_failed = True
+    if "min_words" in checks and count < int(checks["min_words"]):
+        failed.append(f"word count {count} below minimum {checks['min_words']}")
+        weak_check_failed = True
+    elif "min_words" in checks:
+        passed.append(f"word count >= {checks['min_words']}")
+
+    if "max_words" in checks and count > int(checks["max_words"]):
+        failed.append(f"word count {count} above maximum {checks['max_words']}")
+        weak_check_failed = True
+    elif "max_words" in checks:
+        passed.append(f"word count <= {checks['max_words']}")
 
     script = checks.get("script")
     if script == "bengali":
-        count_bengali = sum("\\u0980" <= char <= "\\u09ff" for char in answer)
-        if count_bengali > 0:
+        has_bengali = any("\u0980" <= char <= "\u09ff" for char in answer)
+        if has_bengali:
             passed.append("contains Bengali script")
         else:
             failed.append("expected Bengali script but none was detected")
             weak_check_failed = True
     elif script == "latin":
-        count_bengali = sum("\\u0980" <= char <= "\\u09ff" for char in answer)
-        count_latin = sum(("a" <= char.lower() <= "z") for char in answer)
-        if count_bengali == 0 and count_latin > 0:
+        has_bengali = any("\u0980" <= char <= "\u09ff" for char in answer)
+        has_latin = any("a" <= char.lower() <= "z" for char in answer)
+        if not has_bengali and has_latin:
             passed.append("uses Latin script")
         else:
             failed.append("expected Latin-script response")
             weak_check_failed = True
 
-    # Lightweight contradiction checks are intentionally fail-fast only for
-    # clearly explicit counter-signals; a positive phrase hit remains REVIEW.
+    # Semantic rules are conservative: positive phrase matches remain REVIEW,
+    # while clear contradictory claims can be recorded as FAIL.
     rule = checks.get("semantic_rule")
-    review_reason = None
     if rule == "non_entailment":
         bad = checks.get("positive_claims", [
-            "yes, it follows", "it follows that some roses", "must include at least some",
-            "some roses fade quickly because", "therefore some roses fade quickly",
+            "yes, it follows", "it follows that some roses",
+            "must include at least some", "therefore some roses fade quickly",
         ])
         good = checks.get("negative_claims", [
             "does not follow", "do not follow", "cannot conclude", "can't conclude",
             "not necessarily", "not enough information", "could all be non-roses",
             "may not be roses", "might not be roses",
         ])
-        hit_bad = next((item for item in bad if item.casefold() in text), None)
         hit_good = next((item for item in good if item.casefold() in text), None)
-        if hit_bad:
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        if hit_good:
+            passed.append(f"likely recognizes non-entailment: {hit_good}")
+            review_reason = "Phrase check is only a screen; review whether the explanation is logically valid."
+        elif hit_bad:
             failed.append(f"likely invalid entailment: {hit_bad}")
             hard_failure = True
-        elif hit_good:
-            passed.append(f"likely recognizes non-entailment: {hit_good}")
-            review_reason = "Reasoning explanation is semantic; phrase match alone cannot certify it."
         else:
-            review_reason = "Could not reliably determine the logical conclusion using a simple rule."
+            review_reason = "Logical entailment cannot be certified by keyword matching."
+
     elif rule == "causation":
         bad = checks.get("positive_claims", [
             "yes, carrying an umbrella causes rain", "carrying an umbrella causes rain",
@@ -234,16 +251,17 @@ def evaluate(
             "correlation", "coincidence", "does not establish", "doesn't establish",
             "does not mean", "doesn't mean",
         ])
-        hit_bad = next((item for item in bad if item.casefold() in text), None)
         hit_good = next((item for item in good if item.casefold() in text), None)
-        if hit_bad:
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        if hit_good:
+            passed.append(f"likely distinguishes causation: {hit_good}")
+            review_reason = "Causal reasoning needs semantic review."
+        elif hit_bad:
             failed.append(f"likely unsupported causal claim: {hit_bad}")
             hard_failure = True
-        elif hit_good:
-            passed.append(f"likely distinguishes correlation from causation: {hit_good}")
-            review_reason = "Causal reasoning still needs semantic review."
         else:
             review_reason = "Causal reasoning needs manual review."
+
     elif rule == "uncertainty":
         bad = checks.get("positive_claims", [
             "the ball is red", "the ball is blue", "it is definitely red",
@@ -254,35 +272,73 @@ def evaluate(
             "cannot be determined", "can't be determined", "could be either",
             "not enough information", "does not prove", "doesn't prove",
             "not necessarily", "many explanations", "other explanations",
-            "don't know", "do not know",
+            "don't know", "do not know", "cannot tell", "can't tell",
         ])
-        hit_bad = next((item for item in bad if item.casefold() in text), None)
         hit_good = next((item for item in good if item.casefold() in text), None)
-        if hit_bad:
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        if hit_good:
+            passed.append(f"acknowledges uncertainty: {hit_good}")
+            review_reason = "Uncertainty judgement remains qualitative."
+        elif hit_bad:
             failed.append(f"likely overconfident conclusion: {hit_bad}")
             hard_failure = True
-        elif hit_good:
-            passed.append(f"acknowledges uncertainty: {hit_good}")
         else:
-            review_reason = "Uncertainty recognition requires manual review."
+            review_reason = "Uncertainty recognition requires semantic review."
+
+    elif rule == "categorical_contradiction":
+        bad = checks.get("positive_claims", [
+            "yes, a cat can be a reptile", "a cat can be a reptile",
+            "cats can be reptiles", "a cat is a reptile",
+        ])
+        good = checks.get("negative_claims", [
+            "no", "cannot be a reptile", "can't be a reptile",
+            "not possible", "none can be reptiles",
+        ])
+        hit_good = next((item for item in good if item.casefold() in text), None)
+        hit_bad = next((item for item in bad if item.casefold() in text), None)
+        if hit_bad:
+            failed.append(f"contradicts the premises: {hit_bad}")
+            hard_failure = True
+        elif hit_good:
+            passed.append(f"likely respects the premises: {hit_good}")
+            review_reason = "Review the full explanation for logical validity."
+        else:
+            review_reason = "Could not determine the conclusion reliably with simple rules."
+
     elif rule == "clarification":
         questions = ["?", "what do you mean", "which task", "what task",
                      "kon kaj", "konta", "ki korte", "ki bolte", "ki kaj"]
         if any(item in text for item in questions):
             passed.append("appears to ask a clarifying question")
-            review_reason = "Manual review should confirm the question is specific to the ambiguity."
+            review_reason = "Confirm manually that the question clarifies the intended action."
         else:
             failed.append("no clear clarifying question detected")
             hard_failure = True
+
+    elif rule == "inconsistent_facts":
+        has_both_times = bool(re.search(r"\b9\s*(?:am|a\.m\.)\b", text)) and bool(
+            re.search(r"\b10\s*(?:am|a\.m\.)\b", text)
+        )
+        conflict_signals = ["conflict", "contradict", "unclear", "verify", "clarify",
+                            "cannot determine", "can't determine", "not enough information"]
+        hit_conflict = next((item for item in conflict_signals if item in text), None)
+        if has_both_times and not hit_conflict:
+            failed.append("repeats both conflicting times without acknowledging the conflict")
+            hard_failure = True
+        elif hit_conflict:
+            passed.append(f"appears to acknowledge inconsistency: {hit_conflict}")
+            review_reason = "Check manually that the answer does not arbitrarily select one time."
+        else:
+            review_reason = "Inconsistency recognition requires manual review."
 
     if hard_failure:
         status = "FAIL"
     elif mode == "qualitative":
         status = "REVIEW"
-        review_reason = review_reason or "Language quality or semantic correctness cannot be certified by keyword checks."
+        review_reason = review_reason or "Subjective language quality or semantic correctness needs human review."
     elif mode == "screening":
         status = "REVIEW"
-        review_reason = review_reason or "Simple keyword/script/length checks are diagnostic signals, not proof of correctness."
+        review_reason = review_reason or "Keyword/script/length checks are diagnostic signals, not proof of correctness."
     elif strong_check_count > 0 and not weak_check_failed:
         status = "PASS"
     else:
@@ -295,7 +351,7 @@ def evaluate(
         "passed": passed,
         "failed": failed,
         "word_count": count,
-        "review_reason": review_reason or "",
+        "review_reason": review_reason,
     }
 
 
